@@ -12,7 +12,7 @@ import {
   useSwitchChain,
 } from 'wagmi';
 
-import '../src/assets/wallet.css';
+import './index.css';
 import { config } from './config/wagmi';
 
 // Create a client for React Query with retries enabled
