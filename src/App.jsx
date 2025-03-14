@@ -43,28 +43,17 @@ function WalletModal({ isOpen, onClose }) {
         const ready = await Promise.all(
           connectors.map(async (connector) => {
             try {
-              // For WalletConnect, don't even try to get the provider as it might fail
-              if (connector.name.toLowerCase().includes('walletconnect')) {
-                return {
-                  ...connector,
-                  ready: true, // Always consider WalletConnect ready
-                  isWalletConnect: true,
-                };
-              }
-
               // For other connectors, check if provider is available
-              const provider = await connector.getProvider();
+              const provider = await connector.getProvider().catch(() => null);
               return {
                 ...connector,
                 ready: !!provider,
-                isWalletConnect: false,
               };
             } catch (e) {
               console.log(`Error checking connector ${connector.name}:`, e);
               return {
                 ...connector,
-                ready: connector.name.toLowerCase().includes('walletconnect'),
-                isWalletConnect: connector.name.toLowerCase().includes('walletconnect'),
+                ready: false,
               };
             }
           }),
@@ -123,7 +112,6 @@ function WalletModal({ isOpen, onClose }) {
                 className='wallet-button'
               >
                 <span>{connector.name}</span>
-                {connector.isWalletConnect && <span className='wallet-note'> (via QR code)</span>}
                 {!connector.ready && <span className='not-ready'> (not installed)</span>}
               </button>
             ))}
@@ -132,13 +120,35 @@ function WalletModal({ isOpen, onClose }) {
           {error && (
             <div className='error-message'>
               {error}
-              {error.includes('WalletConnect') && (
+              {error.includes('provider') && (
                 <p className='error-hint'>
-                  Try refreshing the page or check your network connection.
+                  Please make sure you have a wallet extension installed.
                 </p>
               )}
             </div>
           )}
+
+          <div className='install-hint'>
+            <p>Don't have a wallet?</p>
+            <div className='wallet-links'>
+              <a
+                href='https://metamask.io/download/'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='wallet-link'
+              >
+                Install MetaMask
+              </a>
+              <a
+                href='https://www.coinbase.com/wallet/downloads'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='wallet-link'
+              >
+                Install Coinbase Wallet
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -241,6 +251,36 @@ function ConnectWallet() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isConnected } = useAccount();
 
+  // Handle ethereum check
+  useEffect(() => {
+    const handleEthereum = () => {
+      const { ethereum } = window;
+      if (ethereum && ethereum.isMetaMask) {
+        console.log('MetaMask is installed!');
+      }
+    };
+
+    // Use this safer check that won't trigger errors
+    if (typeof window !== 'undefined') {
+      if (window.ethereum) {
+        handleEthereum();
+      } else {
+        window.addEventListener('ethereum#initialized', handleEthereum, {
+          once: true,
+        });
+        // If the event is not dispatched by the end of the timeout,
+        // the user probably doesn't have MetaMask installed.
+        setTimeout(handleEthereum, 3000); // 3 seconds
+      }
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('ethereum#initialized', handleEthereum);
+      }
+    };
+  }, []);
+
   if (isConnected) {
     return <Account />;
   }
@@ -259,6 +299,7 @@ function ConnectWallet() {
   );
 }
 
+// ======== Main App Component ========
 function App() {
   return (
     <WagmiProvider config={config}>
