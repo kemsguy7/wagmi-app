@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
-  WagmiProvider,
   useAccount,
   useConnect,
   useDisconnect,
@@ -302,13 +301,9 @@ function ConnectWallet() {
 // ======== Main App Component ========
 function App() {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <div className='app'>
-          <ConnectWallet />
-        </div>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <div className='app'>
+      <ConnectWallet />
+    </div>
   );
 }
 
