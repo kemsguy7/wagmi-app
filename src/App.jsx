@@ -12,17 +12,6 @@ import {
 } from 'wagmi';
 
 import './index.css';
-import { config } from './config/wagmi';
-
-// Create a client for React Query with retries enabled
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    },
-  },
-});
 
 // ======== Wallet Modal Component ========
 function WalletModal({ isOpen, onClose }) {
