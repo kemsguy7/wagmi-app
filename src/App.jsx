@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useAccount,
   useConnect,
@@ -31,11 +30,31 @@ function WalletModal({ isOpen, onClose }) {
         const ready = await Promise.all(
           connectors.map(async (connector) => {
             try {
-              // For other connectors, check if provider is available
-              const provider = await connector.getProvider().catch(() => null);
+              // For some connectors, we can use isAuthorized to check if they're ready
+              let isReady = false;
+
+              // First try to check if authorized
+              if (typeof connector.isAuthorized === 'function') {
+                try {
+                  isReady = await connector.isAuthorized();
+                } catch (authError) {
+                  console.log(`isAuthorized error for ${connector.name}:`, authError);
+                }
+              }
+
+              // If not determined by isAuthorized, try getProvider as fallback
+              if (!isReady) {
+                try {
+                  const provider = await connector.getProvider().catch(() => null);
+                  isReady = !!provider;
+                } catch (providerError) {
+                  console.log(`getProvider error for ${connector.name}:`, providerError);
+                }
+              }
+
               return {
                 ...connector,
-                ready: !!provider,
+                ready: isReady,
               };
             } catch (e) {
               console.log(`Error checking connector ${connector.name}:`, e);
@@ -239,8 +258,13 @@ function ConnectWallet() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isConnected } = useAccount();
 
-  // Handle ethereum check
+  // Safer ethereum detection that won't break in SSR environments
   useEffect(() => {
+    // Skip this effect during SSR
+    if (typeof window === 'undefined') return;
+
+    let checkTimeout;
+
     const handleEthereum = () => {
       const { ethereum } = window;
       if (ethereum && ethereum.isMetaMask) {
@@ -248,24 +272,26 @@ function ConnectWallet() {
       }
     };
 
-    // Use this safer check that won't trigger errors
-    if (typeof window !== 'undefined') {
-      if (window.ethereum) {
-        handleEthereum();
-      } else {
-        window.addEventListener('ethereum#initialized', handleEthereum, {
-          once: true,
-        });
-        // If the event is not dispatched by the end of the timeout,
-        // the user probably doesn't have MetaMask installed.
-        setTimeout(handleEthereum, 3000); // 3 seconds
-      }
+    if (window.ethereum) {
+      handleEthereum();
+    } else {
+      // Only add the event listener if ethereum doesn't exist yet
+      window.addEventListener('ethereum#initialized', handleEthereum, {
+        once: true,
+      });
+
+      // Set a timeout to check if MetaMask was initialized
+      checkTimeout = setTimeout(() => {
+        window.removeEventListener('ethereum#initialized', handleEthereum);
+        if (!window.ethereum) {
+          console.log('MetaMask is not installed');
+        }
+      }, 3000);
     }
 
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('ethereum#initialized', handleEthereum);
-      }
+      window.removeEventListener('ethereum#initialized', handleEthereum);
+      if (checkTimeout) clearTimeout(checkTimeout);
     };
   }, []);
 

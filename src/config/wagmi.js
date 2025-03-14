@@ -5,15 +5,14 @@ import { injected, metaMask, coinbaseWallet } from 'wagmi/connectors';
 const config = createConfig({
   chains: [mainnet, base, optimism, polygon, arbitrum],
   connectors: [
-    injected({
-      shimDisconnect: true,
-      target: 'conflux',
-    }),
     metaMask({
       shimDisconnect: true,
     }),
     coinbaseWallet({
       appName: 'My Web3 App',
+      shimDisconnect: true,
+    }),
+    injected({
       shimDisconnect: true,
     }),
   ],
